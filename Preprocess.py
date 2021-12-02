@@ -17,7 +17,7 @@ def PreResize(input):
         return input
 
 
-def Preprocess(input):
+def Preprocess(input, showSteps):
     height, width, numChannels = input.shape
     # if height > 1080 or width > 1920:
     #     rszRatio = max(height / 1080, width / 1920)
@@ -26,17 +26,20 @@ def Preprocess(input):
     #     input = cv2.resize(input, (dstWidth, dstHeight), interpolation=cv2.INTER_LANCZOS4)
     imgGrayscale = GetHSV(input, height, width)
     # imgGrayscale = cv2.cvtColor(input, cv2.COLOR_BGR2GRAY)
-    # cv2.imwrite("imgGrayscale.png", imgGrayscale)
-    imgMaxContrastGrayscale = MaximizeContrast(imgGrayscale, height, width)
-    # imgMaxContrastGrayscale = cv2.equalizeHist(imgGrayscale)
-    # cv2.imwrite("imgMaxContrastGrayscale.png", imgMaxContrastGrayscale)
+    # imgMaxContrastGrayscale = MaximizeContrast(imgGrayscale, height, width)
+    imgMaxContrastGrayscale = cv2.equalizeHist(imgGrayscale)
+
     # cv2.imshow("test", imgMaxContrastGrayscale)
     # cv2.waitKey(0)
     # imgBlurred = cv2.medianBlur(imgMaxContrastGrayscale, 3)
     imgBlurred = cv2.GaussianBlur(imgMaxContrastGrayscale, GAUSSIAN_SMOOTH_FILTER_SIZE, 0)
-    cv2.imwrite("imgBlurred.png", imgBlurred)
     imgThresh = cv2.adaptiveThreshold(imgBlurred, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, ADAPTIVE_THRESH_BLOCK_SIZE, ADAPTIVE_THRESH_WEIGHT)
-    cv2.imwrite("imgThresh.png", imgThresh)
+    if showSteps:
+        cv2.imshow("imgGrayscale.png", imgGrayscale)
+        cv2.imshow("imgMaxContrastGrayscale.png", imgMaxContrastGrayscale)
+        cv2.imshow("plateimgBlurred.png", imgBlurred)
+        cv2.imshow("plateimgThresh.png", imgThresh)
+        cv2.waitKey(0)
     return imgGrayscale, imgThresh
 
 def GetHSV(input, height, width):

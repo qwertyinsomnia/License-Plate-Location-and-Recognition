@@ -77,17 +77,51 @@ class Trainer:
 					continue
 				root_int = ord(os.path.basename(root))
 				for filename in files:
-					filepath = os.path.join(root,filename)
-					digit_img = cv2.imread(filepath)
-					digit_img = cv2.cvtColor(digit_img, cv2.COLOR_BGR2GRAY)
-					chars_train.append(digit_img)
-					chars_label.append(root_int)
+					if not filename.startswith("gt_"):
+						filepath = os.path.join(root,filename)
+						digit_img = cv2.imread(filepath)
+						digit_img = cv2.cvtColor(digit_img, cv2.COLOR_BGR2GRAY)
+						chars_train.append(digit_img)
+						chars_label.append(root_int)
 			
 			chars_train = list(map(deskew, chars_train))
 			chars_train = preprocess_hog(chars_train)
 			chars_label = np.array(chars_label)
 			self.model.train(chars_train, chars_label)
 		return self.model
+
+	def test(self):
+		chars_test = []
+		chars_label = []
+
+		for root, dirs, files in os.walk("train\\chars"):
+			if len(os.path.basename(root)) > 1:
+				continue
+			root_int = ord(os.path.basename(root))
+			for filename in files:
+				if filename.startswith("gt_"):
+					filepath = os.path.join(root,filename)
+					digit_img = cv2.imread(filepath)
+					digit_img = cv2.cvtColor(digit_img, cv2.COLOR_BGR2GRAY)
+					chars_test.append(digit_img)
+					chars_label.append(root_int)
+		
+		chars_test = list(map(deskew, chars_test))
+		chars_test = preprocess_hog(chars_test)
+		chars_label = np.array(chars_label)
+
+		# print(chars_test)
+		# print(chars_test.type())
+
+		result = self.model.predict(chars_test)
+
+
+		mask = (result==chars_label)
+		correct = np.count_nonzero(mask)
+		ratio = correct*100.0/result.size
+		print(ratio)
+		return ratio
+
 	def save_traindata(self):
 		if not os.path.exists("svm.dat"):
 			self.model.save("svm.dat")
@@ -121,3 +155,5 @@ class CNNTrainer:
 if __name__ == '__main__':
 	t = Trainer()
 	t.train_svm()
+	print(t.model)
+	t.test()

@@ -60,8 +60,6 @@ class PossibleChar:
         self.fltAspectRatio = float(self.intBoundingRectWidth) / float(self.intBoundingRectHeight)
 
 def checkIfPossibleChar(possibleChar):
-            # this function is a 'first pass' that does a rough check on a contour to see if it could be a char,
-            # note that we are not (yet) comparing the char to other chars to look for a group
     if (possibleChar.intBoundingRectArea > MIN_PIXEL_AREA and
         possibleChar.intBoundingRectWidth > MIN_PIXEL_WIDTH and possibleChar.intBoundingRectHeight > MIN_PIXEL_HEIGHT and
         MIN_ASPECT_RATIO < possibleChar.fltAspectRatio and possibleChar.fltAspectRatio < MAX_ASPECT_RATIO):
@@ -71,8 +69,6 @@ def checkIfPossibleChar(possibleChar):
 
 
 def findListOfListsOfMatchingChars(listOfPossibleChars):
-            # the purpose of this function is to re-arrange the one big list of chars into a list of lists of matching chars,
-            # note that chars that are not found to be in a group of matches do not need to be considered further
     listOfListsOfMatchingChars = []
 
     for possibleChar in listOfPossibleChars:
@@ -133,12 +129,12 @@ def angleBetweenChars(firstChar, secondChar):
 
     return fltAngleInDeg
 
-def DetectCharsInPlates(listOfPossiblePlates, model, modelType):
+def DetectCharsInPlates(listOfPossiblePlates, model, modelType, showSteps):
     if len(listOfPossiblePlates) == 0:
         return listOfPossiblePlates
 
     for possiblePlate in listOfPossiblePlates:
-        possiblePlate.imgGrayscale, possiblePlate.imgThresh = Preprocess.Preprocess(possiblePlate.imgPlate)
+        possiblePlate.imgGrayscale, possiblePlate.imgThresh = Preprocess.Preprocess(possiblePlate.imgPlate, showSteps)
         possiblePlate.imgThresh = cv2.resize(possiblePlate.imgThresh, (0, 0), fx = 1.6, fy = 1.6)
 
         thresholdValue, possiblePlate.imgThresh = cv2.threshold(possiblePlate.imgThresh, 0.0, 255.0, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -156,7 +152,7 @@ def DetectCharsInPlates(listOfPossiblePlates, model, modelType):
 
         for i in range(0, len(listOfListsOfMatchingCharsInPlate)):
             if len(listOfListsOfMatchingCharsInPlate[i]) >= 5 and len(listOfListsOfMatchingCharsInPlate[i]) <= 8:
-                possiblePlate.strChars = recognizeCharsInPlate(possiblePlate.imgThresh, listOfListsOfMatchingCharsInPlate[i], model, modelType)
+                possiblePlate.strChars = recognizeCharsInPlate(possiblePlate.imgThresh, listOfListsOfMatchingCharsInPlate[i], model, modelType, showSteps)
         # intLenOfLongestListOfChars = 0
         # intIndexOfLongestListOfChars = 0
 
@@ -176,13 +172,35 @@ def findPossibleCharsInPlate(imgGrayscale, imgThresh):
     listOfPossibleChars = []
     contours = []
     imgThreshCopy = imgThresh.copy()
-
+    height, width = imgThresh.shape
+    # cv2.imshow("imgThreshCopy", imgThreshCopy)
+    # cv2.waitKey(0)
     contours, npaHierarchy = cv2.findContours(imgThreshCopy, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    print("contours counts:" + str(len(contours)))
+    
+    # if len(contours) == 53:
+    #     imgContours = np.zeros((height, width, 3), np.uint8)
+    #     for contour in contours:
+    #         cnt = contour
+    #         imgContours = cv2.drawContours(imgContours, [cnt], 0, (255, 255, 255), 1)
+    #     cv2.imshow("imgContours", imgContours)
+    #     cv2.waitKey(0)
+    
     for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
         possibleChar = PossibleChar(contour)
-        if checkIfPossibleChar(possibleChar):
+        # if checkIfPossibleChar(possibleChar):
+        if h > height * 0.3:
             listOfPossibleChars.append(possibleChar)
 
+    print("contours after check:" + str(len(listOfPossibleChars)))
+    # if len(listOfPossibleChars) == 19 or len(listOfPossibleChars) == 10 or len(listOfPossibleChars) == 9:
+    #     imgContours = np.zeros((height, width, 3), np.uint8)
+    #     for i in range(len(listOfPossibleChars)):
+    #         cnt = listOfPossibleChars[i].contour
+    #         imgContours = cv2.drawContours(imgContours, [cnt], 0, (255, 255, 255), 1)
+    #     cv2.imshow("imgContours2", imgContours)
+    #     cv2.waitKey(0)
     return listOfPossibleChars
 
 
@@ -202,7 +220,7 @@ def removeInnerOverlappingChars(listOfMatchingChars):
 
     return listOfMatchingCharsWithInnerCharRemoved
 
-def recognizeCharsInPlate(imgThresh, listOfMatchingChars, model, modelType):
+def recognizeCharsInPlate(imgThresh, listOfMatchingChars, model, modelType, showSteps):
     predict_result = []
     strChars = ""
 
@@ -221,17 +239,49 @@ def recognizeCharsInPlate(imgThresh, listOfMatchingChars, model, modelType):
         imgROI = imgThresh[currentChar.intBoundingRectY : currentChar.intBoundingRectY + currentChar.intBoundingRectHeight,
                            currentChar.intBoundingRectX : currentChar.intBoundingRectX + currentChar.intBoundingRectWidth]
 
-        imgROIResized = cv2.resize(imgROI, (RESIZED_CHAR_IMAGE_WIDTH, RESIZED_CHAR_IMAGE_HEIGHT))
+        contours, npaHierarchy = cv2.findContours(imgROI, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        # print("contours counts when recognazing:" + str(len(contours)))
+        charHeight = currentChar.intBoundingRectHeight
+        charWidth = currentChar.intBoundingRectWidth
+        s = charHeight * charWidth
+        imgContours = np.zeros((charHeight, charWidth, 3), np.uint8)
+        imgContours[:, :, 0] = imgROI
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            area = cv2.contourArea(contour)
+            if (h < charHeight * 0.3 or w < charWidth * 0.3) or area < (s * 0.02):
+                imgContours = cv2.drawContours(imgContours, [contour], 0, (0, 0, 0), -1)
+        
+        if showSteps:
+            cv2.imshow("imgContours", imgContours)
 
-        # TO DO
+        imgROI = imgContours[:, :, 0]
+        if showSteps:
+            cv2.imshow("imgROI", imgROI)
+        
         if modelType == MODEL_CNN:
-            npaROIResized = imgROIResized.reshape((1, RESIZED_CHAR_IMAGE_WIDTH * RESIZED_CHAR_IMAGE_HEIGHT))        # flatten image into 1d numpy array
+            imgROIResized = cv2.resize(imgROI, (RESIZED_CHAR_IMAGE_WIDTH, RESIZED_CHAR_IMAGE_HEIGHT))
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            imgROIResized = cv2.morphologyEx(imgROIResized, cv2.MORPH_CLOSE, kernel)
+            # imgROIResized = cv2.copyMakeBorder(imgROIResized, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0.0, 0.0, 0.0))
+            npaROIResized = imgROIResized.reshape((1, RESIZED_CHAR_IMAGE_WIDTH * RESIZED_CHAR_IMAGE_HEIGHT))
+            if showSteps:
+                cv2.imshow("imgROIResized", imgROIResized)
+                cv2.waitKey(0)
             npaROIResized = np.float32(npaROIResized)
             retval, npaResults, neigh_resp, dists = model.findNearest(npaROIResized, k = 1)
             strCurrentChar = str(chr(int(npaResults[0][0])))
             predict_result.append(strCurrentChar)
 
         elif modelType == MODEL_SVM:
+            imgROIResized = cv2.resize(imgROI, (int(20/charHeight*charWidth * 1.2), 20))
+            border = max(int(10 - 10/charHeight*charWidth * 1.2), 0)
+            imgROIResized = cv2.copyMakeBorder(imgROIResized, 0, 0, border, border, cv2.BORDER_CONSTANT, value=(0.0, 0.0, 0.0))
+            # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            # imgROIResized = cv2.morphologyEx(imgROIResized, cv2.MORPH_CLOSE, kernel)
+            if showSteps:
+                cv2.imshow("imgROIResized", imgROIResized)
+                cv2.waitKey(0)
             part_card = Train.preprocess_hog([imgROIResized])
             resp = model.predict(part_card)
             charactor = chr(int(resp[0]))

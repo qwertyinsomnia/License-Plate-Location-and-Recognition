@@ -20,7 +20,7 @@ class PossiblePlate:
 
         self.strChars = ""
 
-def DetectPlates(input):
+def DetectPlates(input, showSteps):
     listOfPossiblePlates = []
     height, width, numChannels = input.shape
 
@@ -28,7 +28,7 @@ def DetectPlates(input):
     # imgThresh = np.zeros((height, width, 1), np.uint8)
     imgContours = np.zeros((height, width, 3), np.uint8)
 
-    imgGrayscale, imgThresh = Preprocess.Preprocess(input)
+    imgGrayscale, imgThresh = Preprocess.Preprocess(input, showSteps)
 
     listOfPossibleChars = findPossibleChars(imgThresh)
 

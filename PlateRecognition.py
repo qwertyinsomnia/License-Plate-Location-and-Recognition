@@ -24,9 +24,9 @@ def PlateRecognition(path, showSteps, model, modelType):
         return
 
     input = Preprocess.PreResize(input)
-    listOfPossiblePlates = DetectPlates.DetectPlates(input)
+    listOfPossiblePlates = DetectPlates.DetectPlates(input, showSteps)
 
-    listOfPossiblePlates = DetectChars.DetectCharsInPlates(listOfPossiblePlates, model, modelType)
+    listOfPossiblePlates = DetectChars.DetectCharsInPlates(listOfPossiblePlates, model, modelType, showSteps)
 
 
     if len(listOfPossiblePlates) == 0:
@@ -40,25 +40,59 @@ def PlateRecognition(path, showSteps, model, modelType):
         # for licPlate in listOfPossiblePlates:
 
         if showSteps == True:
-            cv2.imshow("imgPlate", licPlate.imgPlate)           # show crop of plate and threshold of plate
+            cv2.imshow("imgPlate", licPlate.imgPlate)
             cv2.imshow("imgThresh", licPlate.imgThresh)
 
-        if len(licPlate.strChars) == 0:                     # if no chars were found in the plate
-            print("\nno characters were detected\n\n")  # show message
-            return                                          # and exit program
+        if len(licPlate.strChars) == 0:
+            print("\nno characters were detected\n\n")
+            return "", licPlate.imgPlate
 
-        drawRedRectangleAroundPlate(input, licPlate)             # draw red rectangle around plate
+        drawRedRectangleAroundPlate(input, licPlate)
 
-        print("\nlicense plate read from image = " + licPlate.strChars + "\n")  # write license plate text to std out
+        print("\nlicense plate read from image = " + licPlate.strChars + "\n")
 
-        # writeLicensePlateCharsOnImage(input, licPlate)           # write license plate text on the image
         if showSteps == True:
-            cv2.imshow("input", input)                # re-show scene image
+            writeLicensePlateCharsOnImage(input, licPlate)
+
+        if showSteps == True:
+            cv2.imshow("input", input)
             cv2.waitKey(0)
 
-        # cv2.imwrite("input.png", input)
+    return licPlate.strChars, licPlate.imgPlate
 
-    return licPlate.strChars
+def writeLicensePlateCharsOnImage(imgOriginalScene, licPlate):
+    ptCenterOfTextAreaX = 0
+    ptCenterOfTextAreaY = 0
+    ptLowerLeftTextOriginX = 0
+    ptLowerLeftTextOriginY = 0
+
+    sceneHeight, sceneWidth, sceneNumChannels = imgOriginalScene.shape
+    plateHeight, plateWidth, plateNumChannels = licPlate.imgPlate.shape
+
+    intFontFace = cv2.FONT_HERSHEY_SIMPLEX
+    fltFontScale = float(plateHeight) / 20.0
+    intFontThickness = int(round(fltFontScale * 1.5))
+
+    textSize, baseline = cv2.getTextSize(licPlate.strChars, intFontFace, fltFontScale, intFontThickness)
+
+    ( (intPlateCenterX, intPlateCenterY), (intPlateWidth, intPlateHeight), fltCorrectionAngleInDeg ) = licPlate.rrLocationOfPlateInScene
+
+    intPlateCenterX = int(intPlateCenterX)
+    intPlateCenterY = int(intPlateCenterY)
+
+    ptCenterOfTextAreaX = int(intPlateCenterX)
+
+    if intPlateCenterY < (sceneHeight * 0.75):
+        ptCenterOfTextAreaY = int(round(intPlateCenterY)) + int(round(plateHeight * 1.6))
+    else:
+        ptCenterOfTextAreaY = int(round(intPlateCenterY)) - int(round(plateHeight * 1.6))
+
+    textSizeWidth, textSizeHeight = textSize
+
+    ptLowerLeftTextOriginX = int(ptCenterOfTextAreaX - (textSizeWidth / 2))
+    ptLowerLeftTextOriginY = int(ptCenterOfTextAreaY + (textSizeHeight / 2))
+
+    cv2.putText(imgOriginalScene, licPlate.strChars, (ptLowerLeftTextOriginX, ptLowerLeftTextOriginY), intFontFace, fltFontScale, SCALAR_RED, intFontThickness)
 
 def drawRedRectangleAroundPlate(imgOriginalScene, licPlate):
 
@@ -75,7 +109,7 @@ def TestCase(filepath, model, modelType):
     filepath = "tests/" + filepath
     # print(correct)
     showSteps = False
-    result = PlateRecognition(filepath, showSteps, model, modelType)
+    result, roi = PlateRecognition(filepath, showSteps, model, modelType)
     if result == None:
         result = " "
     if result == correct:
@@ -104,9 +138,12 @@ def RunTestCases(model, modelType):
 
 
 if __name__ == "__main__":
-    filepath= "tests/LKZ3468.JPG"
-    # filepath= "tests/1.png"
-    showSteps = False
+    filepath= "tests/DVB2893.JPG"
+    # filepath= "tests/MCLRNF1.png"
+
+    testCaseFlag = True
+    # testCaseFlag = False
+
     modelType = MODEL_CNN
     if modelType == MODEL_SVM:
         t = Train.Trainer()
@@ -115,7 +152,9 @@ if __name__ == "__main__":
         t = Train.CNNTrainer()
         t.loadKNNDataAndTrainKNN()
         model = t.kNearest
-        
-    # PlateRecognition(filepath, showSteps, model, modelType)
 
-    RunTestCases(model, modelType)
+    if not testCaseFlag:
+        showSteps = True
+        PlateRecognition(filepath, showSteps, model, modelType)
+    else:
+        RunTestCases(model, modelType)
