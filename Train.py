@@ -4,6 +4,8 @@ from numpy.linalg import norm
 import os
 
 SZ = 20          #训练图片长宽
+MODEL_SVM = 1
+MODEL_CNN = 2
 
 #来自opencv的sample，用于svm训练
 def deskew(img):
@@ -67,6 +69,7 @@ class Trainer:
 		if os.path.exists("svm.dat"):
 			print("loading svm.dat...")
 			self.model.load("svm.dat")
+			print(self.model)
 		else:
 			print("no svm.dat, waiting for training...")
 			chars_train = []
@@ -129,9 +132,12 @@ class Trainer:
 class CNNTrainer:
 	def __init__(self):
 		self.kNearest = cv2.ml.KNearest_create()
+		self.kNearest.setDefaultK(1)
+	def __del__(self):
+		self.save_traindata()
 	def loadKNNDataAndTrainKNN(self):
-		allContoursWithData = []
-		validContoursWithData = []
+		npaFlattenedImages = []
+		npaClassifications = []
 
 		try:
 			npaClassifications = np.loadtxt("classifications.txt", np.float32)
@@ -146,14 +152,23 @@ class CNNTrainer:
 			print("error, unable to open flattened_images.txt, exiting program\n")
 			os.system("pause")
 			return False
-
 		npaClassifications = npaClassifications.reshape((npaClassifications.size, 1))
-		self.kNearest.setDefaultK(1)
 		self.kNearest.train(npaFlattenedImages, cv2.ml.ROW_SAMPLE, npaClassifications)
 		return True
 
+	def save_traindata(self):
+		if not os.path.exists("cnn.xml"):
+			self.kNearest.save("cnn.xml")
+
 if __name__ == '__main__':
-	t = Trainer()
-	t.train_svm()
-	print(t.model)
-	t.test()
+	testFlag = False
+	trainType = MODEL_CNN
+
+	if trainType == MODEL_SVM:
+		t = Trainer()
+		t.train_svm()
+		if testFlag:
+			t.test()
+	elif trainType == MODEL_CNN:
+		t = CNNTrainer()
+		t.loadKNNDataAndTrainKNN()

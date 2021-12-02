@@ -138,13 +138,13 @@ def RunTestCases(model, modelType):
 
 
 if __name__ == "__main__":
-    filepath= "tests/DVB2893.JPG"
+    filepath= "tests/PLD2460.JPG"
     # filepath= "tests/MCLRNF1.png"
 
-    testCaseFlag = True
-    # testCaseFlag = False
+    # testCaseFlag = True
+    testCaseFlag = False
 
-    modelType = MODEL_CNN
+    modelType = MODEL_SVM
     if modelType == MODEL_SVM:
         t = Train.Trainer()
         model = t.train_svm()

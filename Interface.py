@@ -123,7 +123,7 @@ class Surface(ttk.Frame):
         
     def from_pic(self):
         self.thread_run = False
-        self.pic_path = askopenfilename(title="choose the image", filetypes=[("jpg", "*.jpg")])
+        self.pic_path = askopenfilename(title="choose the image", filetypes=[('All files','*.*'), ("jpg", "*.jpg"), ('png','*.png')])
         if self.pic_path:
             # r, roi = PlateRecognition.PlateRecognition(self.pic_path, False, self.model, self.modelType)
             img_bgr = cv2.imread(self.pic_path)
